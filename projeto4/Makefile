@@ -3,12 +3,12 @@ CFLAGS = -Wall -g
  
 objs = queue.o ppos_core.o
  
-all: pingpong_scheduler
+all: sched
  
-pingpong_scheduler: $(objs)
+sched: $(objs)
 
 clean:
 	-rm -f $(objs) *~
  
 purge: clean
-	-rm -f pingpong_scheduler
+	-rm -f sched

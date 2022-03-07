@@ -31,11 +31,13 @@ void task_setprio(task_t *task, int prio){
         printf ("# alterando a prioridade da tarefa %d para %d\n", current_task->id, prio) ;
         #endif
         current_task->static_priority = prio;
+        current_task->dynamic_priority = prio;
     } else {
         #ifdef PRIO_DEBUG
         printf ("# alterando a prioridade da tarefa %d para %d\n", task->id, prio) ;
         #endif
         task->static_priority = prio;
+        task->dynamic_priority = prio;
     }
 }
 
@@ -51,12 +53,17 @@ struct task_t *scheduler(){
     struct task_t *next, *choosen;
     int priority = 21;
 
-    next = task_queue;
-    for(int i = 0; i < queue_size(task_queue) - 1; i++){
-        if(next->dynamic_priority < priority){
+    next = (task_t *)task_queue;
+    for(int i = 0; i < queue_size(task_queue); i++){
+        if(next->dynamic_priority <= priority && next != &dispatcher_task){
             choosen = next;
             priority = choosen->dynamic_priority;
-        } else {
+        }
+        next = next->next;
+    }
+    next = (task_t *)task_queue;
+    for(int i = 0; i < queue_size(task_queue); i++){
+        if(choosen != next & next != &dispatcher_task){
             next->dynamic_priority += AGING;
         }
         next = next->next;
@@ -80,7 +87,7 @@ void dispatcher(){
                 queue_append(&task_queue, (queue_t *)next);
                 break;
             case FINISHED:
-                // free the memory
+                free(next->context.uc_stack.ss_sp);
                 break;
             default:
                 break;
