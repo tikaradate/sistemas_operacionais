@@ -17,7 +17,7 @@ int number_of_tasks;
 
 // projeto 3
 struct queue_t *task_queue;
-struct task_t dispatcher_task;
+struct task_t *dispatcher_task;
 
 // projeto 4
 #define AGING -1
@@ -66,20 +66,64 @@ int task_getprio(task_t *task){
 }
 
 struct task_t *scheduler(){
-    struct task_t *next;
-    next = task_queue;
-    queue_remove(&task_queue, (queue_t *) next);
-    next->quantum = 20;
-    next->activations++;
-    return next;
+    struct task_t *next, *choosen;
+    next = (task_t*) task_queue;
+    int priority = 21;
+
+    next = (task_t *)task_queue;
+    // procura a tarefa mais prioritária
+    for(int i = 0; i < queue_size(task_queue); i++){
+        if(next->dynamic_priority <= priority && next != dispatcher_task){
+            choosen = next;
+            priority = choosen->dynamic_priority;
+        }
+        next = next->next;
+    }
+
+    next = (task_t *)task_queue;
+    // aumenta a prioridade de todas outras tarefas
+    for(int i = 0; i < queue_size(task_queue); i++){
+        if(choosen != next && next != dispatcher_task){
+            next->dynamic_priority += ALFA;
+        }
+        next = next->next;
+    }
+
+    choosen->dynamic_priority = choosen->static_priority;
+
+    queue_remove(&task_queue, (queue_t *) choosen);
+    choosen->quantum = 20;
+    choosen->activations++;
+    return choosen;
+}
+
+void print_elem (void *ptr)
+{
+   task_t *elem = ptr ;
+
+   if (!elem)
+      return ;
+
+   elem->prev ? printf ("%d", elem->prev->id) : printf ("*") ;
+   printf ("<%d>", elem->id) ;
+   elem->next ? printf ("%d", elem->next->id) : printf ("*") ;
 }
 
 void dispatcher(){
-    while(queue_size(task_queue) > 1){
+    
+    while(queue_size(task_queue) > 0){
+        #ifdef DISP_DEBUG
+        queue_print("fila de tarefas: ", task_queue, print_elem);
+        #endif
         struct task_t *next;
         next = scheduler();
+        #ifdef DISP_DEBUG
+        printf("Próxima tarefa: %d\n", next->id );
+        #endif
 
-        if(next != NULL && next != &dispatcher_task){
+        dispatcher_task->activations++;
+
+        if(next != NULL && next != dispatcher_task){
             
             task_switch(next);
 
@@ -106,12 +150,10 @@ void tratador(int signum){
     // alarme tocou
     // if(signum == 14)
     time_elapsed++;
+    current_task->processor_time++;
     if(current_task->preemptable){
         current_task->quantum--;
-        current_task->processor_time++;
         if(current_task->quantum == 0){
-            // printf("sem tempo irmao\n");
-            // queue_append(&task_queue, (queue_t *) current_task);
             task_yield();
         }
     }
@@ -176,8 +218,14 @@ void ppos_init (){
     global_id = 1;
     time_elapsed = 0;
 
-    task_create(&dispatcher_task, dispatcher, NULL);
-    dispatcher_task.preemptable = FALSE;
+    dispatcher_task = malloc(sizeof(task_t));
+    if(!dispatcher_task)
+    {
+        perror ("Erro na criação da tarefa dispatcher: ") ;
+        exit (1) ;
+    }
+    task_create(dispatcher_task, dispatcher, NULL);
+    dispatcher_task->preemptable = FALSE;
 }
 
 int task_create (task_t *task, void (*start_routine)(void *),  void *arg) {
@@ -241,7 +289,11 @@ void task_exit (int exit_code){
     #ifdef DEBUG
     printf ("# quero sair da task %d\n", current_task->id) ;
     #endif
-    if(current_task == &dispatcher_task){
+    if(current_task == dispatcher_task){
+        current_task->end_time = time_elapsed;
+        printf("Task %d exit: execution time %d ms, processor time %d ms, %d activations\n", 
+        current_task->id, current_task->end_time - current_task->start_time, current_task->processor_time, current_task->activations);
+        free(current_task->context.uc_stack.ss_sp);
         task_switch(main_task);
     } else {
         current_task->status = FINISHED;
@@ -262,5 +314,5 @@ void task_yield (){
     printf ("# task %d dando controle para o dispatcher\n", current_task->id) ;
     #endif
     
-    task_switch(&dispatcher_task);
+    task_switch(dispatcher_task);
 }

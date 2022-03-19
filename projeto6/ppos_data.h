@@ -11,7 +11,9 @@
 
 #define READY 1
 #define FINISHED 2
-#define SUSPENDED 3
+
+// constante de prioridade dinâmica
+#define ALFA -1
 
 // Estrutura que define um Task Control Block (TCB)
 typedef struct task_t
