@@ -1,5 +1,5 @@
 CC = gcc
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -DDEBUG
  
 objs = queue.o ppos_core.o
  
